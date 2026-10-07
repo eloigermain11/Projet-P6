@@ -1,72 +1,116 @@
 #include <Arduino.h>
 #include <LibRobUS.h>
 
-void setup()
-{
+const int32_t PULSES_50CM = 6683;    // 50 cm
+const int32_t PULSES_90_DEG = 2000;  // a recalibrer 
+
+const float VITESSE_CROISIERE = 0.30;
+const float VITESSE_ROTATION = 0.20;
+const unsigned long DELAI = 50; // delai entre les mesures
+
+const float KP = 0.0001;
+const float KI = 0.00002;
+
+void arreter_moteurs();
+void avancer();
+void tourner_gauche();
+void tourner_droite();
+
+void setup() {
   Serial.begin(9600);
   BoardInit();
 }
 
-int32_t encodeur1 = 0;
-int32_t encodeur2 = 5;
-int difference = 0;
-float correction = 0;
-float vitesse_gauche = 0.30;
+void loop() {
 
-  
-int main()
-{
-  Serial.println("main");
-  
-  while(true)
-  {
-    Serial.println("while");
+  // bumper arriere
+  if (ROBUS_IsBumper(3)) {
+    delay(500);
 
-    float vitesse_droite = vitesse_gauche - correction;
+    // mouvement test
+    avancer();
+    delay(500);
 
-    if(ROBUS_IsBumper(3))
-    {
-      Serial.println("bumper");
-      ENCODER_ReadReset(RIGHT);
-      ENCODER_ReadReset(LEFT);
-      delay(1000);
+    tourner_droite();
+    delay(500);
 
-      MOTOR_SetSpeed(RIGHT, vitesse_droite);
-      MOTOR_SetSpeed(LEFT, vitesse_gauche);
-      delay(2000);
+    avancer();
+    delay(500);
 
-      MOTOR_SetSpeed(RIGHT, 0);
-      MOTOR_SetSpeed(LEFT, 0);
-      delay(1000);
-
-      ENCODER_Read(LEFT);
-      ENCODER_Read(RIGHT);
-
-      encodeur1 = ENCODER_Read(RIGHT);
-      encodeur2 = ENCODER_Read(LEFT);
-
-      Serial.println(encodeur1);
-      Serial.println(encodeur2);
-    
-    
-      // trouver la pondération de l'erreur
-      difference = encodeur1 - encodeur2;
-      
-      correction = difference * 0.0001;
-      Serial.println(difference);
-      Serial.println(correction);
-    }
-
-    if (encodeur1 == encodeur2 && vitesse_droite < 0.3)
-    {
-      Serial.println("moteur calibré!");
-      Serial.println(correction);
-      break;
-    }
+    tourner_gauche();
+    delay(500);
   }
-  return 0;
 }
 
-  
 
- 
+void arreter_moteurs() {
+  MOTOR_SetSpeed(LEFT, 0);
+  MOTOR_SetSpeed(RIGHT, 0);
+  delay(100);
+}
+
+void avancer() {
+  ENCODER_ReadReset(LEFT);
+  ENCODER_ReadReset(RIGHT);
+
+  int32_t total_gauche = 0;
+  int32_t total_droite = 0;
+  int32_t erreur_cumulee = 0;
+
+  float vitesse_droite = VITESSE_CROISIERE;
+
+  while (total_gauche < PULSES_50CM) {
+    MOTOR_SetSpeed(LEFT, VITESSE_CROISIERE);
+    MOTOR_SetSpeed(RIGHT, vitesse_droite);
+
+    delay(DELAI);
+
+    int32_t delta_gauche = ENCODER_ReadReset(LEFT);
+    int32_t delta_droite = ENCODER_ReadReset(RIGHT);
+
+    total_gauche += delta_gauche;
+    total_droite += delta_droite;
+
+    int32_t erreur_vitesse = delta_gauche - delta_droite;
+    erreur_cumulee = total_gauche - total_droite;
+
+    float correction = (erreur_vitesse * KP) + (erreur_cumulee * KI);
+    vitesse_droite = VITESSE_CROISIERE + correction;
+
+    if (vitesse_droite > 1.0) vitesse_droite = 1.0;
+    if (vitesse_droite < 0.15) vitesse_droite = 0.15;
+  }
+
+  arreter_moteurs();
+}
+
+
+void tourner_gauche() {
+  ENCODER_ReadReset(LEFT);
+  ENCODER_ReadReset(RIGHT);
+
+  // directions des roues inversées
+  MOTOR_SetSpeed(LEFT, -VITESSE_ROTATION);
+  MOTOR_SetSpeed(RIGHT, VITESSE_ROTATION);
+
+  while (abs(ENCODER_Read(RIGHT)) < PULSES_90_DEG) {
+    delay(10);
+  }
+
+  arreter_moteurs();
+}
+
+void tourner_droite() {
+  ENCODER_ReadReset(LEFT);
+  ENCODER_ReadReset(RIGHT);
+
+  // directions des roues inversées
+  MOTOR_SetSpeed(LEFT, VITESSE_ROTATION);
+  MOTOR_SetSpeed(RIGHT, -VITESSE_ROTATION);
+
+  while (abs(ENCODER_Read(LEFT)) < PULSES_90_DEG) {
+    delay(10);
+  }
+
+  arreter_moteurs();
+}
