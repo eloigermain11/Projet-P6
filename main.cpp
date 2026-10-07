@@ -4,7 +4,7 @@
 const int32_t PULSES_50CM = 6683;    // 50 cm
 const int32_t PULSES_90_DEG = 2000;  // a recalibrer 
 
-const float VITESSE_CROISIERE = 0.30;
+const float VITESSE_BASE = 0.30;
 const float VITESSE_ROTATION = 0.20;
 const unsigned long DELAI = 50; // delai entre les mesures
 
@@ -57,10 +57,10 @@ void avancer() {
   int32_t total_droite = 0;
   int32_t erreur_cumulee = 0;
 
-  float vitesse_droite = VITESSE_CROISIERE;
+  float vitesse_droite = VITESSE_BASE;
 
   while (total_gauche < PULSES_50CM) {
-    MOTOR_SetSpeed(LEFT, VITESSE_CROISIERE);
+    MOTOR_SetSpeed(LEFT, VITESSE_BASE);
     MOTOR_SetSpeed(RIGHT, vitesse_droite);
 
     delay(DELAI);
@@ -75,7 +75,7 @@ void avancer() {
     erreur_cumulee = total_gauche - total_droite;
 
     float correction = (erreur_vitesse * KP) + (erreur_cumulee * KI);
-    vitesse_droite = VITESSE_CROISIERE + correction;
+    vitesse_droite = VITESSE_BASE + correction;
 
     if (vitesse_droite > 1.0) vitesse_droite = 1.0;
     if (vitesse_droite < 0.15) vitesse_droite = 0.15;
