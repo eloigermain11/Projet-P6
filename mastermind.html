@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mastermind — Tableau des essais</title>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    overflow: hidden;
+  }
+
+  header {
+    width: 100%;
+    max-width: 780px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Badge de difficulté */
+  .difficulty-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  .difficulty-badge:hover {
+    filter: brightness(0.96);
+  }
+
+  .diff-facile {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+  }
+
+  .diff-moyen {
+    background: #fef9c3;
+    color: #a16207;
+    border-color: #fde047;
+  }
+
+  .diff-difficile {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.15s ease;
+  }
+
+  button:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+  }
+
+  button.connected {
+    border-color: #16a34a;
+    color: #16a34a;
+    background: #f0fdf4;
+  }
+
+  button.primary {
+    background: #16a34a;
+    color: #ffffff;
+    border-color: #16a34a;
+    font-weight: 600;
+  }
+
+  button.primary:hover {
+    background: #15803d;
+  }
+
+  /* Plateau fixe de 8 essais (du bas vers le haut) */
+  #board {
+    flex: 1;
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 12px 0;
+    min-height: 0;
+  }
+
+  .attempt-row {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 6px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+    transition: all 0.2s ease;
+    min-height: 0;
+  }
+
+  .attempt-row.upcoming {
+    background: rgba(255, 255, 255, 0.55);
+    border-color: #e2e8f0;
+    box-shadow: none;
+  }
+
+  .attempt-row.draft {
+    border: 2px dashed #64748b;
+    background: #f8fafc;
+  }
+
+  .attempt-row.winning-row {
+    border: 2px solid #22c55e;
+    background: #f0fdf4;
+  }
+
+  .attempt-num {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--muted);
+    width: 44px;
+  }
+
+  .upcoming .attempt-num {
+    color: #94a3b8;
+  }
+
+  .pegs-container {
+    display: flex;
+    gap: 36px;
+    margin: 0 auto;
+    align-items: center;
+  }
+
+  .peg-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .color-circle {
+    width: clamp(32px, 4.5vh, 48px);
+    height: clamp(32px, 4.5vh, 48px);
+    border-radius: 50%;
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    transition: transform 0.12s ease;
+  }
+
+  .color-circle.empty-slot {
+    background: #f1f5f9;
+    border: 2px dashed #cbd5e1;
+    box-shadow: none;
+  }
+
+  .upcoming .color-circle.empty-slot {
+    background: transparent;
+    border-color: #e2e8f0;
+  }
+
+  .draft .color-circle:not(.empty-slot) {
+    cursor: pointer;
+  }
+
+  .result-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    transition: all 0.15s ease;
+  }
+
+  .upcoming .result-dot {
+    border-color: #e2e8f0;
+  }
+
+  .draft .result-dot {
+    cursor: pointer;
+    transform: scale(1.15);
+  }
+
+  .res-2 {
+    background-color: #22c55e;
+    border-color: #16a34a;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.45);
+  }
+
+  .res-1 {
+    background-color: #eab308;
+    border-color: #ca8a04;
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.45);
+  }
+
+  .res-0 {
+    background-color: transparent;
+    border-color: #cbd5e1;
+  }
+
+  .draft-actions {
+    display: flex;
+    gap: 6px;
+    min-width: 118px;
+    justify-content: flex-end;
+  }
+
+  .draft-actions button {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+
+  .row-spacer {
+    width: 118px;
+  }
+
+  /* Palette des couleurs cliquables en bas */
+  footer {
+    width: 100%;
+    max-width: 720px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 24px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  }
+
+  .palette-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.12s ease;
+  }
+
+  .palette-item:hover {
+    transform: scale(1.12);
+  }
+
+  .palette-item:active {
+    transform: scale(0.95);
+  }
+
+  .palette-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .palette-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Overlay de fin minimaliste et grand format */
+  #end-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(241, 245, 249, 0.78);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  #end-overlay.visible {
+    display: flex;
+    opacity: 1;
+  }
+
+  .end-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 48px 72px;
+    text-align: center;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
+    transform: scale(0.94);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  #end-overlay.visible .end-card {
+    transform: scale(1);
+  }
+
+  .end-card h2 {
+    font-size: clamp(3rem, 7vw, 4.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .end-card.win h2 {
+    color: #16a34a;
+  }
+
+  .end-card.lose h2 {
+    color: #dc2626;
+  }
+
+  .end-subtitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  .end-subtitle:empty {
+    display: none;
+  }
+
+  .end-pegs {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .end-pegs:empty {
+    display: none;
+  }
+
+  .end-pegs .mini-peg {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.14);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.18);
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>Mastermind</h1>
+      <span id="difficulty-badge" class="difficulty-badge diff-facile" title="Cliquer pour changer la difficulté" onclick="cyclerDifficulte()">Facile</span>
+    </div>
+    <div class="controls">
+      <button id="btn-ble" onclick="connecterBluetooth()">Connecter Robot (BLE)</button>
+      <button onclick="simulerEssai()">+ Test</button>
+      <button onclick="testerVictoire()">Test Victoire</button>
+      <button onclick="testerDefaite()">Test Défaite</button>
+      <button onclick="effacerPlateau()">Effacer</button>
+    </div>
+  </header>
+
+  <main id="board"></main>
+
+  <footer></footer>
+
+  <div class="legend">
+    <span><i style="background:#22c55e; border:1px solid #16a34a"></i> Bien placée</span>
+    <span><i style="background:#eab308; border:1px solid #ca8a04"></i> Mal placée</span>
+    <span><i style="border:1.5px solid #94a3b8"></i> Absente</span>
+  </div>
+
+  <!-- Message de fin minimaliste -->
+  <div id="end-overlay">
+    <div class="end-card" id="end-card">
+      <h2 id="end-title">Réussi!</h2>
+      <p class="end-subtitle" id="end-subtitle"></p>
+      <div class="end-pegs" id="end-pegs"></div>
+    </div>
+  </div>
+
+<script>
+  const MAX_ESSAIS = 8;
+  const DELAI_REINITIALISATION = 2000;
+  const NIVEAUX_DIFFICULTE = ['Facile', 'Moyen', 'Difficile'];
+
+  const COULEURS = {
+    'V': { nom: 'Vert',  style: 'background:#22c55e; border-color:#16a34a' },
+    'B': { nom: 'Bleu',  style: 'background:#3b82f6; border-color:#2563eb' },
+    'R': { nom: 'Rouge', style: 'background:#ef4444; border-color:#dc2626' },
+    'J': { nom: 'Jaune', style: 'background:#facc15; border-color:#eab308' },
+    'W': { nom: 'Blanc', style: 'background:radial-gradient(circle at 35% 30%, #ffffff, #e2e8f0 80%); border-color:#94a3b8' },
+    'N': { nom: 'Noir',  style: 'background:radial-gradient(circle at 35% 30%, #374151, #111827 75%); border-color:#1f2937' }
+  };
+
+  let essais = JSON.parse(localStorage.getItem('mastermind_essais') || '[]');
+  let difficulte = localStorage.getItem('mastermind_difficulte') || 'Facile';
+  let brouillonCouleurs = [];
+  let brouillonResultats = [0, 0, 0, 0];
+  let bufferBLE = "";
+  let resetTimer = null;
+
+  const footer = document.querySelector('footer');
+  Object.entries(COULEURS).forEach(([code, info]) => {
+    const item = document.createElement('div');
+    item.className = 'palette-item';
+    item.title = `Cliquer pour ajouter ${info.nom} (${code})`;
+    item.onclick = () => ajouterCouleurManuelle(code);
+    item.innerHTML = `
+      <div class="palette-circle" style="${info.style}"></div>
+      <span class="palette-label">${info.nom}</span>
+    `;
+    footer.appendChild(item);
+  });
+
+  renderDifficulte();
+  renderBoard();
+  verifierFinPartie();
+
+  // --- Gestion de la difficulté ---
+  function definirDifficulte(valeur) {
+    const normalise = valeur.trim().toLowerCase();
+    if (normalise.startsWith('f') || normalise === '1') {
+      difficulte = 'Facile';
+    } else if (normalise.startsWith('m') || normalise === '2') {
+      difficulte = 'Moyen';
+    } else if (normalise.startsWith('d') || normalise === '3') {
+      difficulte = 'Difficile';
+    } else {
+      return;
+    }
+    localStorage.setItem('mastermind_difficulte', difficulte);
+    renderDifficulte();
+  }
+
+  function cyclerDifficulte() {
+    const idx = NIVEAUX_DIFFICULTE.indexOf(difficulte);
+    difficulte = NIVEAUX_DIFFICULTE[(idx + 1) % NIVEAUX_DIFFICULTE.length];
+    localStorage.setItem('mastermind_difficulte', difficulte);
+    renderDifficulte();
+  }
+
+  function renderDifficulte() {
+    const badge = document.getElementById('difficulty-badge');
+    badge.textContent = difficulte;
+    badge.className = `difficulty-badge diff-${difficulte.toLowerCase()}`;
+  }
+
+  function partieTerminee() {
+    if (essais.length === 0) return false;
+    const dernier = essais[essais.length - 1];
+    const gagne = dernier.resultats.every(r => r === 2);
+    return gagne || essais.length >= MAX_ESSAIS;
+  }
+
+  function ajouterCouleurManuelle(code) {
+    if (partieTerminee()) return;
+    if (brouillonCouleurs.length < 4) {
+      brouillonCouleurs.push(code);
+      renderBoard();
+    }
+  }
+
+  function retirerCouleurManuelle(index) {
+    brouillonCouleurs.splice(index, 1);
+    renderBoard();
+  }
+
+  function cyclerFeedback(index) {
+    brouillonResultats[index] = (brouillonResultats[index] + 1) % 3;
+    renderBoard();
+  }
+
+  function validerBrouillon() {
+    if (brouillonCouleurs.length < 4 || partieTerminee()) return;
+    const num = essais.length + 1;
+    traiterTrame(`ESSAI,${num},${brouillonCouleurs.join(',')},${brouillonResultats.join(',')}`);
+    annulerBrouillon();
+  }
+
+  function annulerBrouillon() {
+    brouillonCouleurs = [];
+    brouillonResultats = [0, 0, 0, 0];
+    renderBoard();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && brouillonCouleurs.length === 4) {
+      validerBrouillon();
+    } else if (e.key === 'Backspace' && brouillonCouleurs.length > 0) {
+      brouillonCouleurs.pop();
+      renderBoard();
+    }
+  });
+
+  // Accepte :
+  // - "DIFF,Facile" (ou Moyen / Difficile)
+  // - "ESSAI,1,V,B,R,J,2,1,0,2" (avec difficulte optionnelle en 11e champ : "ESSAI,1,V,B,R,J,2,1,0,2,Moyen")
+  function traiterTrame(ligne) {
+    const parts = ligne.trim().split(',');
+
+    if (parts[0] === 'DIFF' && parts[1]) {
+      definirDifficulte(parts[1]);
+      return;
+    }
+
+    if (parts[0] !== 'ESSAI' || parts.length < 10) return;
+    if (partieTerminee()) return;
+
+    if (parts[10]) {
+      definirDifficulte(parts[10]);
+    }
+
+    const nouvelEssai = {
+      num: parts[1],
+      couleurs: [parts[2], parts[3], parts[4], parts[5]],
+      resultats: [parseInt(parts[6]), parseInt(parts[7]), parseInt(parts[8]), parseInt(parts[9])]
+    };
+
+    essais.push(nouvelEssai);
+    localStorage.setItem('mastermind_essais', JSON.stringify(essais));
+    renderBoard();
+    verifierFinPartie();
+  }
+
+  function verifierFinPartie() {
+    if (essais.length === 0) return;
+    const dernier = essais[essais.length - 1];
+    const aGagne = dernier.resultats.every(r => r === 2);
+
+    if (aGagne) {
+      afficherFin('win', essaiVersCouleurs(dernier), essais.length);
+    } else if (essais.length >= MAX_ESSAIS) {
+      afficherFin('lose', [], MAX_ESSAIS);
+    }
+  }
+
+  function essaiVersCouleurs(essai) {
+    return essai.couleurs.map(c => c.trim().toUpperCase());
+  }
+
+  function afficherFin(type, couleursGagnantes, nbEssais) {
+    const overlay = document.getElementById('end-overlay');
+    const card = document.getElementById('end-card');
+    const title = document.getElementById('end-title');
+    const subtitle = document.getElementById('end-subtitle');
+    const pegs = document.getElementById('end-pegs');
+
+    card.className = `end-card ${type}`;
+    pegs.innerHTML = '';
+
+    if (type === 'win') {
+      title.textContent = 'Réussi!';
+      subtitle.textContent = nbEssais === 1 ? 'En 1 essai' : `En ${nbEssais} essais`;
+      couleursGagnantes.forEach(code => {
+        const dot = document.createElement('div');
+        dot.className = 'mini-peg';
+        dot.style = COULEURS[code]?.style || 'background:#64748b';
+        pegs.appendChild(dot);
+      });
+    } else {
+      title.textContent = 'Réessayez!';
+      subtitle.textContent = '';
+    }
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => {
+      effacerPlateau();
+    }, DELAI_REINITIALISATION);
+  }
+
+  function fermerModal() {
+    const overlay = document.getElementById('end-overlay');
+    overlay.classList.remove('visible');
+    setTimeout(() => {
+      if (!overlay.classList.contains('visible')) {
+        overlay.style.display = 'none';
+      }
+    }, 250);
+  }
+
+  function renderBoard() {
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+
+    for (let index = 0; index < MAX_ESSAIS; index++) {
+      const row = document.createElement('div');
+      const essai = essais[index];
+      const estBrouillon = (index === essais.length && brouillonCouleurs.length > 0 && !partieTerminee());
+
+      if (essai) {
+        const estGagnant = essai.resultats.every(r => r === 2);
+        row.className = `attempt-row ${estGagnant ? 'winning-row' : ''}`;
+        let slotsHTML = '';
+        for (let i = 0; i < 4; i++) {
+          const codeCouleur = essai.couleurs[i]?.trim().toUpperCase() || 'V';
+          const cStyle = COULEURS[codeCouleur]?.style || 'background:#64748b';
+          const res = essai.resultats[i] ?? 0;
+
+          slotsHTML += `
+            <div class="peg-slot">
+              <div class="color-circle" style="${cStyle}"></div>
+              <div class="result-dot res-${res}"></div>
+            </div>
+          `;
+        }
+
+        row.innerHTML = `
+          <div class="attempt-num">#${index + 1}</div>
+          <div class="pegs-container">${slotsHTML}</div>
+          <div class="row-spacer"></div>
+        `;
+      } else if (estBrouillon) {
+        row.className = 'attempt-row draft';
+        let slotsHTML = '';
+        for (let i = 0; i < 4; i++) {
+          const code = brouillonCouleurs[i];
+          const res = brouillonResultats[i];
+          if (code) {
+            slotsHTML += `
+              <div class="peg-slot">
+                <div class="color-circle" style="${COULEURS[code].style}" title="Cliquer pour retirer" onclick="retirerCouleurManuelle(${i})"></div>
+                <div class="result-dot res-${res}" title="Cliquer pour changer le résultat (Vide / Jaune / Vert)" onclick="cyclerFeedback(${i})"></div>
+              </div>
+            `;
+          } else {
+            slotsHTML += `
+              <div class="peg-slot">
+                <div class="color-circle empty-slot"></div>
+                <div class="result-dot res-0" style="opacity:0.4"></div>
+              </div>
+            `;
+          }
+        }
+
+        row.innerHTML = `
+          <div class="attempt-num">#${index + 1}</div>
+          <div class="pegs-container">${slotsHTML}</div>
+          <div class="draft-actions">
+            <button class="primary" onclick="validerBrouillon()" ${brouillonCouleurs.length < 4 ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>Valider</button>
+            <button onclick="annulerBrouillon()">Annuler</button>
+          </div>
+        `;
+      } else {
+        row.className = 'attempt-row upcoming';
+        let slotsHTML = '';
+        for (let i = 0; i < 4; i++) {
+          slotsHTML += `
+            <div class="peg-slot">
+              <div class="color-circle empty-slot"></div>
+              <div class="result-dot res-0"></div>
+            </div>
+          `;
+        }
+
+        row.innerHTML = `
+          <div class="attempt-num">#${index + 1}</div>
+          <div class="pegs-container">${slotsHTML}</div>
+          <div class="row-spacer"></div>
+        `;
+      }
+
+      board.appendChild(row);
+    }
+  }
+
+  async function connecterBluetooth() {
+    const btn = document.getElementById('btn-ble');
+    try {
+      const SERVICE_UUID = 0xFFE0;
+      const CHAR_UUID    = 0xFFE1;
+
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'ELET_BLE' }],
+        optionalServices: [SERVICE_UUID]
+      });
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+      const characteristic = await service.getCharacteristic(CHAR_UUID);
+
+      await characteristic.startNotifications();
+      characteristic.addEventListener('characteristicvaluechanged', (event) => {
+        const chunk = new TextDecoder().decode(event.target.value);
+        bufferBLE += chunk;
+        if (bufferBLE.includes('\n')) {
+          const lignes = bufferBLE.split('\n');
+          bufferBLE = lignes.pop();
+          lignes.forEach(traiterTrame);
+        }
+      });
+
+      btn.textContent = `Connecté (${device.name})`;
+      btn.classList.add('connected');
+
+      device.addEventListener('gattserverdisconnected', () => {
+        btn.textContent = 'Déconnecté — Reconnecter';
+        btn.classList.remove('connected');
+      });
+
+    } catch (err) {
+      console.error(err);
+      alert("Connexion annulée ou module non détecté. Vérifie que le Bluetooth du PC est activé.");
+    }
+  }
+
+  function simulerEssai() {
+    if (partieTerminee()) return;
+    const codes = Object.keys(COULEURS);
+    const c = Array.from({length: 4}, () => codes[Math.floor(Math.random() * codes.length)]);
+    let r = Array.from({length: 4}, () => Math.floor(Math.random() * 3));
+    if (r.every(val => val === 2)) r[0] = 1;
+    traiterTrame(`ESSAI,${essais.length + 1},${c.join(',')},${r.join(',')}`);
+  }
+
+  function testerVictoire() {
+    if (partieTerminee()) effacerPlateau();
+    const codes = Object.keys(COULEURS);
+    const c = Array.from({length: 4}, () => codes[Math.floor(Math.random() * codes.length)]);
+    traiterTrame(`ESSAI,${essais.length + 1},${c.join(',')},2,2,2,2`);
+  }
+
+  function testerDefaite() {
+    effacerPlateau();
+    const codes = Object.keys(COULEURS);
+    for (let i = 1; i <= MAX_ESSAIS; i++) {
+      const c = Array.from({length: 4}, () => codes[Math.floor(Math.random() * codes.length)]);
+      const r = [1, 0, 1, 0];
+      traiterTrame(`ESSAI,${i},${c.join(',')},${r.join(',')}`);
+    }
+  }
+
+  function effacerPlateau() {
+    clearTimeout(resetTimer);
+    essais = [];
+    localStorage.removeItem('mastermind_essais');
+    fermerModal();
+    annulerBrouillon();
+  }
+</script>
+</body>
+</html>
